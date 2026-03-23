@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+from importlib.util import find_spec
 from io import BytesIO
 
 import pandas as pd
+
+if find_spec("streamlit") is None:
+    raise ModuleNotFoundError(
+        "Streamlit não está instalado no ambiente. Rode `python -m pip install -r requirements.txt` "
+        "e execute a interface com `streamlit run src/app.py`."
+    )
+
 import streamlit as st
 
 from generate_pdf import generate_report_pdf, load_data
@@ -74,7 +82,7 @@ if bloco:
 metric_1, metric_2, metric_3 = st.columns(3)
 metric_1.metric("Base carregada", f"{len(df):,}".replace(",", "."))
 metric_2.metric("Registros no recorte", f"{len(preview_scope):,}".replace(",", "."))
-metric_3.metric("Meses disponíveis", int(preview_scope['mes_ref'].nunique()) if not preview_scope.empty else 0)
+metric_3.metric("Meses disponíveis", int(preview_scope["mes_ref"].nunique()) if not preview_scope.empty else 0)
 
 st.info(f"Base utilizada: {base_path}")
 

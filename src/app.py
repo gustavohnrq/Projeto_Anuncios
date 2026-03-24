@@ -2,10 +2,25 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
 import pandas as pd
 
-from generate_pdf import choose_default_bairro, format_currency, generate_report_pdf, load_data
+APP_DIR = Path(__file__).resolve().parent
+GENERATE_PDF_PATH = APP_DIR / "generate_pdf.py"
+GENERATE_PDF_SPEC = spec_from_file_location("project_generate_pdf", GENERATE_PDF_PATH)
+if GENERATE_PDF_SPEC is None or GENERATE_PDF_SPEC.loader is None:
+    raise ImportError(f"Não foi possível carregar o módulo local: {GENERATE_PDF_PATH}")
+
+GENERATE_PDF_MODULE = module_from_spec(GENERATE_PDF_SPEC)
+sys.modules[GENERATE_PDF_SPEC.name] = GENERATE_PDF_MODULE
+GENERATE_PDF_SPEC.loader.exec_module(GENERATE_PDF_MODULE)
+
+choose_default_bairro = GENERATE_PDF_MODULE.choose_default_bairro
+format_currency = GENERATE_PDF_MODULE.format_currency
+generate_report_pdf = GENERATE_PDF_MODULE.generate_report_pdf
+load_data = GENERATE_PDF_MODULE.load_data
 
 
 def _format_int(value: int) -> str:

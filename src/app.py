@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import tempfile
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 
 APP_DIR = Path(__file__).resolve().parent
-GENERATE_PDF_PATH = APP_DIR / "generate_pdf.py"
+GENERATE_PDF_PATH = Path(os.environ.get("PROJECT_GENERATE_PDF_PATH", APP_DIR / "generate_pdf.py")).resolve()
 GENERATE_PDF_SPEC = spec_from_file_location("project_generate_pdf", GENERATE_PDF_PATH)
 if GENERATE_PDF_SPEC is None or GENERATE_PDF_SPEC.loader is None:
     raise ImportError(f"Não foi possível carregar o módulo local: {GENERATE_PDF_PATH}")
@@ -17,10 +20,65 @@ GENERATE_PDF_MODULE = module_from_spec(GENERATE_PDF_SPEC)
 sys.modules[GENERATE_PDF_SPEC.name] = GENERATE_PDF_MODULE
 GENERATE_PDF_SPEC.loader.exec_module(GENERATE_PDF_MODULE)
 
-choose_default_bairro = GENERATE_PDF_MODULE.choose_default_bairro
-format_currency = GENERATE_PDF_MODULE.format_currency
-generate_report_pdf = GENERATE_PDF_MODULE.generate_report_pdf
-load_data = GENERATE_PDF_MODULE.load_data
+
+def _fallback_format_currency(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "n/d"
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _fallback_choose_default_bairro(df: pd.DataFrame) -> str:
+    bairros = sorted([value for value in df["bairro_padronizado"].dropna().astype(str).tolist() if value.strip()])
+    if not bairros:
+        raise ValueError("Não há bairros válidos na base analítica para gerar um relatório padrão.")
+    return bairros[0]
+
+
+def _build_generate_report_fallback(module):
+    required = ["FilterScope", "load_data", "filter_data", "compute_indicators", "generate_charts", "build_pdf"]
+    missing = [name for name in required if not hasattr(module, name)]
+    if missing:
+        raise AttributeError(
+            "O módulo generate_pdf.py não expõe a interface necessária para o app. "
+            f"Itens ausentes: {missing}"
+        )
+
+    def _generate_report_pdf(
+        bairro: str,
+        quadra: str | None = None,
+        bloco: str | None = None,
+        input_path: str | None = None,
+        output_path: str | None = None,
+    ):
+        df, base_path = module.load_data(input_path)
+        scoped = module.filter_data(df, bairro=bairro, quadra=quadra, bloco=bloco)
+        if scoped.empty:
+            raise ValueError("Nenhum registro encontrado para os filtros informados.")
+
+        filters = module.FilterScope(bairro=bairro, quadra=quadra, bloco=bloco)
+        indicators = module.compute_indicators(scoped, filters)
+
+        default_name = f"estudo_imobiliario_{bairro.lower().replace(' ', '_')}"
+        if quadra:
+            default_name += f"_{quadra.lower().replace(' ', '_')}"
+        if bloco:
+            default_name += f"_{bloco.lower().replace(' ', '_')}"
+
+        pdf_path = Path(output_path) if output_path else APP_DIR.parent / "reports" / f"{default_name}.pdf"
+
+        with tempfile.TemporaryDirectory(prefix="study_charts_") as tmpdir:
+            charts = module.generate_charts(indicators, Path(tmpdir))
+            module.build_pdf(indicators, charts, pdf_path)
+
+        return SimpleNamespace(pdf_path=pdf_path, indicators=indicators, base_path=base_path)
+
+    return _generate_report_pdf
+
+
+choose_default_bairro = getattr(GENERATE_PDF_MODULE, "choose_default_bairro", _fallback_choose_default_bairro)
+format_currency = getattr(GENERATE_PDF_MODULE, "format_currency", _fallback_format_currency)
+load_data = getattr(GENERATE_PDF_MODULE, "load_data")
+generate_report_pdf = getattr(GENERATE_PDF_MODULE, "generate_report_pdf", _build_generate_report_fallback(GENERATE_PDF_MODULE))
 
 
 def _format_int(value: int) -> str:

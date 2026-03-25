@@ -333,7 +333,7 @@ def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
 
 
 def _style_bar_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(title, fontsize=11, color=COLOR_TEXT, pad=12)
+    ax.set_title(title, fontsize=10, color=COLOR_TEXT, pad=16)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -342,7 +342,7 @@ def _style_bar_axis(ax: plt.Axes, title: str) -> None:
 
 
 def _style_line_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(title, fontsize=13, fontweight="bold", color=COLOR_TEXT, pad=12)
+    ax.set_title(title, fontsize=12, fontweight="bold", color=COLOR_TEXT, pad=18)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -372,9 +372,9 @@ def _plot_overview_top(indicators: Indicators, output_path: Path) -> Path:
             plt.Line2D([0], [0], marker="o", color="w", markerfacecolor=color, markersize=8)
             for color in colors_used
         ]
-        ax.legend(handles, snapshot["serie"], loc="upper center", bbox_to_anchor=(0.5, 1.18), ncol=2, frameon=False)
+        ax.legend(handles, snapshot["serie"], loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=2, frameon=False, fontsize=10, handlelength=0)
 
-    fig.tight_layout()
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
     fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return output_path
@@ -432,9 +432,9 @@ def _plot_line_chart(
         plt.Line2D([0], [0], marker="o", linestyle="", color=palette.get(label, DEFAULT_PALETTE[0]), markersize=7)
         for label in labels
     ]
-    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=min(4, max(1, len(labels))), frameon=False)
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=min(3, max(1, len(labels))), frameon=False, fontsize=9, handlelength=0)
 
-    fig.tight_layout()
+    fig.tight_layout(rect=[0, 0, 1, 0.90])
     fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return output_path
@@ -488,9 +488,9 @@ def _plot_dual_bar_last_month(
             plt.Line2D([0], [0], marker="o", linestyle="", color=color, markersize=7)
             for color in colors_used
         ]
-        ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.14), ncol=min(4, len(labels)), frameon=False, handlelength=0)
+        ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.06), ncol=min(3, len(labels)), frameon=False, handlelength=0, fontsize=8)
 
-    fig.tight_layout(w_pad=1.4)
+    fig.tight_layout(rect=[0, 0, 1, 0.93], w_pad=1.4)
     fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return output_path

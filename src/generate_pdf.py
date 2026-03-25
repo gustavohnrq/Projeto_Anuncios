@@ -38,8 +38,11 @@ COLOR_PINK = "#D94FB8"
 COLOR_TEXT = "#222222"
 COLOR_MUTED = "#666666"
 COLOR_GRID = "#E5E5E5"
+PAGE_BG = "#EFEFEF"
 DEFAULT_PALETTE = [COLOR_PRIMARY, COLOR_SECONDARY, COLOR_ORANGE, COLOR_PURPLE, COLOR_PINK]
 VAGA_COLORS = {"Com Vaga": COLOR_PRIMARY, "Sem Vaga": COLOR_SECONDARY, "Geral": "#404040"}
+
+plt.rcParams.update({"font.family": "DejaVu Sans", "axes.titlesize": 12})
 
 
 @dataclass(frozen=True)
@@ -674,6 +677,10 @@ def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
     margin = 54
     content_width = page_width - (margin * 2)
 
+    pdf.setFillColor(colors.HexColor(PAGE_BG))
+    pdf.rect(0, 0, page_width, page_height, stroke=0, fill=1)
+    pdf.setFillColor(colors.black)
+
     _draw_brand(pdf, page_width, page_height)
 
     current_y = page_height - 68
@@ -744,6 +751,9 @@ def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
     pdf.setFont("Helvetica", 11)
     pdf.setFillColor(colors.HexColor(COLOR_TEXT))
     pdf.drawCentredString(page_width / 2, 38, "61IMÓVEIS.COM")
+    pdf.setLineWidth(0.6)
+    pdf.setStrokeColor(colors.HexColor("#c9c9c9"))
+    pdf.line(margin, 52, page_width - margin, 52)
     pdf.setFillColor(colors.black)
     pdf.showPage()
 

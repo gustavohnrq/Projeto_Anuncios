@@ -354,7 +354,7 @@ def _style_bar_axis(ax: plt.Axes, title: str) -> None:
 
 
 def _style_line_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(_wrap_title(title, width=44), fontsize=11, fontweight="bold", color=COLOR_TEXT, pad=22)
+    ax.set_title(_wrap_title(title, width=44), fontsize=11, fontweight="bold", color=COLOR_TEXT, pad=26)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -443,13 +443,22 @@ def _plot_line_chart(
     ax.set_xticks(month_ticks["mes_ref_dt"])
     ax.set_xticklabels([month_label(value) for value in month_ticks["mes_ref"]])
 
+    y_min = plot_df["mm3_valor_m2"].min()
+    y_max = plot_df["mm3_valor_m2"].max()
+    if pd.notna(y_min) and pd.notna(y_max):
+        lower = y_min * 0.995
+        upper = y_max * 1.14
+        if lower == upper:
+            upper = lower + 1
+        ax.set_ylim(lower, upper)
+
     handles = [
         plt.Line2D([0], [0], marker="o", linestyle="", color=palette.get(label, DEFAULT_PALETTE[0]), markersize=7)
         for label in labels
     ]
-    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.02), ncol=min(2, max(1, len(labels))), frameon=False, fontsize=8, handlelength=0)
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.16), ncol=min(2, max(1, len(labels))), frameon=False, fontsize=8, handlelength=0)
 
-    fig.tight_layout(rect=[0, 0, 1, 0.86])
+    fig.tight_layout(rect=[0, 0, 1, 0.78])
     fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return output_path

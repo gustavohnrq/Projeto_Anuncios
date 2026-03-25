@@ -347,7 +347,7 @@ def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
 def _style_bar_axis(ax: plt.Axes, title: str) -> None:
     ax.set_title(_wrap_title(title, width=36), fontsize=10, color=COLOR_TEXT, pad=16)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
-    ax.set_facecolor("white")
+    ax.set_facecolor("none")
     ax.tick_params(axis="y", left=False, labelleft=False)
     ax.tick_params(axis="x", length=0, labelsize=11, colors=COLOR_MUTED)
     ax.grid(False)
@@ -356,14 +356,14 @@ def _style_bar_axis(ax: plt.Axes, title: str) -> None:
 def _style_line_axis(ax: plt.Axes, title: str) -> None:
     ax.set_title(_wrap_title(title, width=44), fontsize=11, fontweight="bold", color=COLOR_TEXT, pad=26)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
-    ax.set_facecolor("white")
+    ax.set_facecolor("none")
     ax.tick_params(axis="y", left=False, labelleft=False)
     ax.tick_params(axis="x", length=0, labelsize=12, colors=COLOR_MUTED)
     ax.grid(axis="y", color=COLOR_GRID, linewidth=0.8)
 
 
 def _plot_overview_top(indicators: Indicators, output_path: Path) -> Path:
-    fig, ax = plt.subplots(figsize=(10, 2.7), facecolor="white")
+    fig, ax = plt.subplots(figsize=(10, 2.7), facecolor="none")
     snapshot = pd.DataFrame(
         [
             {"serie": "Com Vaga", "valor": indicators.overview_last_month["valor_m2_com_vaga"]},
@@ -387,7 +387,7 @@ def _plot_overview_top(indicators: Indicators, output_path: Path) -> Path:
         ax.legend(handles, snapshot["serie"], loc="upper center", bbox_to_anchor=(0.5, 1.08), ncol=2, frameon=False, fontsize=10, handlelength=0)
 
     fig.tight_layout(rect=[0, 0, 1, 0.94])
-    fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
+    fig.savefig(output_path, dpi=180, bbox_inches="tight", transparent=True)
     plt.close(fig)
     return output_path
 
@@ -400,14 +400,14 @@ def _plot_line_chart(
     label_formatter=None,
     use_vaga_palette: bool = False,
 ) -> Path:
-    fig, ax = plt.subplots(figsize=(10.2, 4.35), facecolor="white")
+    fig, ax = plt.subplots(figsize=(10.2, 4.35), facecolor="none")
     _style_line_axis(ax, title)
 
     if series_df.empty:
         ax.text(0.5, 0.5, "Sem dados suficientes para esta análise.", ha="center", va="center", fontsize=12)
         ax.axis("off")
         fig.tight_layout()
-        fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
+        fig.savefig(output_path, dpi=180, bbox_inches="tight", transparent=True)
         plt.close(fig)
         return output_path
 
@@ -459,7 +459,7 @@ def _plot_line_chart(
     ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.16), ncol=min(2, max(1, len(labels))), frameon=False, fontsize=8, handlelength=0)
 
     fig.tight_layout(rect=[0, 0, 1, 0.78])
-    fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
+    fig.savefig(output_path, dpi=180, bbox_inches="tight", transparent=True)
     plt.close(fig)
     return output_path
 
@@ -473,7 +473,7 @@ def _plot_dual_bar_last_month(
     label_formatter=None,
     max_categories: int | None = None,
 ) -> Path:
-    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.2), facecolor="white")
+    fig, axes = plt.subplots(1, 2, figsize=(10.2, 3.2), facecolor="none")
     snapshots = {
         "Com Vaga": _last_month_snapshot(series_df, group_col, ("tem_vaga", "Com Vaga")),
         "Sem Vaga": _last_month_snapshot(series_df, group_col, ("tem_vaga", "Sem Vaga")),
@@ -515,7 +515,7 @@ def _plot_dual_bar_last_month(
         ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.06), ncol=min(3, len(labels)), frameon=False, handlelength=0, fontsize=8)
 
     fig.tight_layout(rect=[0, 0, 1, 0.93], w_pad=1.4)
-    fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
+    fig.savefig(output_path, dpi=180, bbox_inches="tight", transparent=True)
     plt.close(fig)
     return output_path
 

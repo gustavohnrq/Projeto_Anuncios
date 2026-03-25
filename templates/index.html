@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estudo Imobiliário</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <main class="container">
+    <h1>Estudo Imobiliário — Interface Web Local</h1>
+    <p class="muted">Base analítica carregada: <strong>{{ base_path }}</strong></p>
+
+    {% if error %}
+      <div class="alert error">{{ error }}</div>
+    {% endif %}
+    {% if info %}
+      <div class="alert info">{{ info }}</div>
+    {% endif %}
+
+    <form method="post" class="card">
+      <label for="input_path">Caminho da base (opcional)</label>
+      <input id="input_path" name="input_path" type="text" placeholder="Ex.: /caminho/base_analitica.csv" value="{{ input_path }}" />
+
+      <div class="grid-3">
+        <div>
+          <label for="bairro">Bairro</label>
+          <select id="bairro" name="bairro" required>
+            {% for item in bairros %}
+              <option value="{{ item }}" {% if bairro == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="quadra">Quadra (opcional)</label>
+          <select id="quadra" name="quadra">
+            <option value="">Todas</option>
+            {% for item in quadras %}
+              <option value="{{ item }}" {% if quadra == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="bloco">Bloco (opcional)</label>
+          <select id="bloco" name="bloco">
+            <option value="">Todos</option>
+            {% for item in blocos %}
+              <option value="{{ item }}" {% if bloco == item %}selected{% endif %}>{{ item }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button name="action" value="preview" type="submit" class="btn secondary">Atualizar prévia</button>
+        <button name="action" value="generate" type="submit" class="btn primary">Gerar PDF</button>
+      </div>
+    </form>
+
+    {% if preview %}
+      <section class="card">
+        <h2>Prévia do recorte</h2>
+        <ul>
+          <li><strong>Bairro:</strong> {{ preview.bairro }}</li>
+          <li><strong>Quadra:</strong> {{ preview.quadra or 'todas' }}</li>
+          <li><strong>Bloco:</strong> {{ preview.bloco or 'todos' }}</li>
+          <li><strong>Registros:</strong> {{ preview.registros }}</li>
+          <li><strong>Meses:</strong> {{ preview.meses|join(', ') if preview.meses else 'nenhum' }}</li>
+        </ul>
+
+        {% if last_month %}
+          <h3>Resumo do último mês</h3>
+          <ul>
+            <li><strong>Mês:</strong> {{ last_month.mes_ref }}</li>
+            <li><strong>Valor médio do m²:</strong> {{ last_month.valor_m2_geral }}</li>
+            <li><strong>Amostra:</strong> {{ last_month.amostra }}</li>
+          </ul>
+        {% endif %}
+      </section>
+    {% endif %}
+  </main>
+</body>
+</html>

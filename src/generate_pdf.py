@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -316,24 +317,28 @@ def _last_month_snapshot(series_df: pd.DataFrame, group_col: str, extra_filter: 
     return snapshot.sort_values("valor_m2_medio", ascending=False).reset_index(drop=True)
 
 
+def _wrap_title(title: str, width: int = 42) -> str:
+    return "\n".join(textwrap.wrap(title, width=width))
+
+
 def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
-    max_value = max(values) if values else 0
-    offset = max_value * 0.03 if max_value else 0.5
     for bar, value in zip(bars, values):
+        y_position = max(bar.get_height() * 0.96, bar.get_height() - (bar.get_height() * 0.08))
         ax.text(
             bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + offset,
+            y_position,
             format_currency(value),
             ha="center",
-            va="bottom",
+            va="top",
             rotation=90,
             fontsize=10,
-            color=COLOR_TEXT,
+            color="#ffffff",
+            fontweight="bold",
         )
 
 
 def _style_bar_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(title, fontsize=10, color=COLOR_TEXT, pad=16)
+    ax.set_title(_wrap_title(title, width=36), fontsize=10, color=COLOR_TEXT, pad=16)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -342,7 +347,7 @@ def _style_bar_axis(ax: plt.Axes, title: str) -> None:
 
 
 def _style_line_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(title, fontsize=12, fontweight="bold", color=COLOR_TEXT, pad=18)
+    ax.set_title(_wrap_title(title, width=44), fontsize=12, fontweight="bold", color=COLOR_TEXT, pad=18)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)

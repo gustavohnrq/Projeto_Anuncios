@@ -321,6 +321,13 @@ def _wrap_title(title: str, width: int = 42) -> str:
     return "\n".join(textwrap.wrap(title, width=width))
 
 
+def _compact_legend_label(label: str, max_len: int = 26) -> str:
+    cleaned = str(label).replace(" | ", " · ")
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 1] + "…"
+
+
 def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
     for bar, value in zip(bars, values):
         y_position = max(bar.get_height() * 0.96, bar.get_height() - (bar.get_height() * 0.08))
@@ -347,7 +354,7 @@ def _style_bar_axis(ax: plt.Axes, title: str) -> None:
 
 
 def _style_line_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(_wrap_title(title, width=44), fontsize=12, fontweight="bold", color=COLOR_TEXT, pad=18)
+    ax.set_title(_wrap_title(title, width=44), fontsize=11, fontweight="bold", color=COLOR_TEXT, pad=22)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("white")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -393,7 +400,7 @@ def _plot_line_chart(
     label_formatter=None,
     use_vaga_palette: bool = False,
 ) -> Path:
-    fig, ax = plt.subplots(figsize=(10.2, 4.0), facecolor="white")
+    fig, ax = plt.subplots(figsize=(10.2, 4.35), facecolor="white")
     _style_line_axis(ax, title)
 
     if series_df.empty:
@@ -413,7 +420,10 @@ def _plot_line_chart(
     if label_formatter is not None:
         plot_df["legend_label"] = plot_df["legend_label"].map(label_formatter)
 
-    labels = plot_df["legend_label"].drop_duplicates().tolist()
+    labels = [_compact_legend_label(value) for value in plot_df["legend_label"].drop_duplicates().tolist()]
+    original_labels = plot_df["legend_label"].drop_duplicates().tolist()
+    label_map = dict(zip(original_labels, labels))
+    plot_df["legend_label"] = plot_df["legend_label"].map(label_map)
     palette = VAGA_COLORS if use_vaga_palette else _series_palette(labels)
 
     for label, group in plot_df.groupby("legend_label", sort=False):
@@ -437,9 +447,9 @@ def _plot_line_chart(
         plt.Line2D([0], [0], marker="o", linestyle="", color=palette.get(label, DEFAULT_PALETTE[0]), markersize=7)
         for label in labels
     ]
-    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=min(3, max(1, len(labels))), frameon=False, fontsize=9, handlelength=0)
+    ax.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.02), ncol=min(2, max(1, len(labels))), frameon=False, fontsize=8, handlelength=0)
 
-    fig.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.tight_layout(rect=[0, 0, 1, 0.86])
     fig.savefig(output_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return output_path

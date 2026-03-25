@@ -171,19 +171,26 @@ def index():
         elif form_state["preview"] and form_state["preview"]["registros"] == 0:
             error = "Nenhum registro encontrado para os filtros selecionados."
         else:
-            with tempfile.NamedTemporaryFile(prefix="estudo_imobiliario_", suffix=".pdf", delete=False) as tmp:
-                tmp_path = Path(tmp.name)
+            try:
+                with tempfile.NamedTemporaryFile(prefix="estudo_imobiliario_", suffix=".pdf", delete=False) as tmp:
+                    tmp_path = Path(tmp.name)
 
-            result = generate_report_pdf(
-                bairro=form_state["bairro"],
-                quadra=form_state["quadra"] or None,
-                bloco=form_state["bloco"] or None,
-                input_path=input_path,
-                output_path=str(tmp_path),
-            )
+                result = generate_report_pdf(
+                    bairro=form_state["bairro"],
+                    quadra=form_state["quadra"] or None,
+                    bloco=form_state["bloco"] or None,
+                    input_path=input_path,
+                    output_path=str(tmp_path),
+                )
 
-            download_name = result.pdf_path.name
-            return send_file(result.pdf_path, as_attachment=True, download_name=download_name, mimetype="application/pdf")
+                pdf_path = Path(result.pdf_path)
+                if not pdf_path.exists() or pdf_path.stat().st_size == 0:
+                    raise ValueError("A geração do PDF não produziu um arquivo válido.")
+
+                download_name = pdf_path.name
+                return send_file(pdf_path, as_attachment=True, download_name=download_name, mimetype="application/pdf")
+            except Exception as exc:
+                error = f"Erro ao gerar PDF: {exc}"
 
     last_month = None
     if form_state["bairro"]:

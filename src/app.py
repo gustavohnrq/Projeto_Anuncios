@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import tempfile
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -19,6 +20,7 @@ if GENERATE_PDF_SPEC is None or GENERATE_PDF_SPEC.loader is None:
     raise ImportError(f"Não foi possível carregar o módulo local: {GENERATE_PDF_PATH}")
 
 GENERATE_PDF_MODULE = module_from_spec(GENERATE_PDF_SPEC)
+sys.modules[GENERATE_PDF_SPEC.name] = GENERATE_PDF_MODULE
 GENERATE_PDF_SPEC.loader.exec_module(GENERATE_PDF_MODULE)
 
 load_data = GENERATE_PDF_MODULE.load_data

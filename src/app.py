@@ -6,6 +6,7 @@ import sys
 import tempfile
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import SimpleNamespace
 
 from flask import Flask, render_template, request, send_file
 import pandas as pd
@@ -23,10 +24,60 @@ GENERATE_PDF_MODULE = module_from_spec(GENERATE_PDF_SPEC)
 sys.modules[GENERATE_PDF_SPEC.name] = GENERATE_PDF_MODULE
 GENERATE_PDF_SPEC.loader.exec_module(GENERATE_PDF_MODULE)
 
-load_data = GENERATE_PDF_MODULE.load_data
-generate_report_pdf = GENERATE_PDF_MODULE.generate_report_pdf
-choose_default_bairro = getattr(GENERATE_PDF_MODULE, "choose_default_bairro")
-format_currency = getattr(GENERATE_PDF_MODULE, "format_currency")
+def _fallback_format_currency(value: float | None) -> str:
+    if value is None or pd.isna(value):
+        return "n/d"
+    return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _fallback_choose_default_bairro(df: pd.DataFrame) -> str:
+    bairros = sorted([value for value in df["bairro_padronizado"].dropna().astype(str).tolist() if value.strip()])
+    if not bairros:
+        raise ValueError("Não há bairros válidos na base analítica para gerar um relatório padrão.")
+    return bairros[0]
+
+
+def _build_generate_report_fallback(module):
+    required = ["FilterScope", "load_data", "filter_data", "compute_indicators", "generate_charts", "build_pdf"]
+    missing = [name for name in required if not hasattr(module, name)]
+    if missing:
+        raise AttributeError(
+            "O módulo generate_pdf.py não expõe a interface necessária para o app web. "
+            f"Itens ausentes: {missing}"
+        )
+
+    def _generate_report_pdf(
+        bairro: str,
+        quadra: str | None = None,
+        bloco: str | None = None,
+        input_path: str | None = None,
+        output_path: str | None = None,
+    ):
+        if output_path is None:
+            raise ValueError("output_path é obrigatório no fallback de geração de PDF.")
+
+        df, base_path = module.load_data(input_path)
+        scoped = module.filter_data(df, bairro=bairro, quadra=quadra, bloco=bloco)
+        if scoped.empty:
+            raise ValueError("Nenhum registro encontrado para os filtros informados.")
+
+        filters = module.FilterScope(bairro=bairro, quadra=quadra, bloco=bloco)
+        indicators = module.compute_indicators(scoped, filters)
+        output_file = Path(output_path)
+
+        with tempfile.TemporaryDirectory(prefix="study_charts_") as tmpdir:
+            charts = module.generate_charts(indicators, Path(tmpdir))
+            module.build_pdf(indicators, charts, output_file)
+
+        return SimpleNamespace(pdf_path=output_file, indicators=indicators, base_path=base_path)
+
+    return _generate_report_pdf
+
+
+load_data = getattr(GENERATE_PDF_MODULE, "load_data")
+generate_report_pdf = getattr(GENERATE_PDF_MODULE, "generate_report_pdf", _build_generate_report_fallback(GENERATE_PDF_MODULE))
+choose_default_bairro = getattr(GENERATE_PDF_MODULE, "choose_default_bairro", _fallback_choose_default_bairro)
+format_currency = getattr(GENERATE_PDF_MODULE, "format_currency", _fallback_format_currency)
 
 app = Flask(__name__, template_folder=str(TEMPLATES_DIR), static_folder=str(STATIC_DIR))
 

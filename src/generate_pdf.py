@@ -674,7 +674,7 @@ def _draw_wrapped_text(
 
 def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
     page_width, page_height = A4
-    margin = 54
+    margin = 40
     content_width = page_width - (margin * 2)
 
     pdf.setFillColor(colors.HexColor(PAGE_BG))
@@ -734,19 +734,20 @@ def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
         )
     current_y -= 10
 
-    top_image_height = 150
-    bottom_image_height = 205
-    image_x = margin + 10
-    image_width = content_width - 20
+    has_highlights = bool(page.highlight_lines)
+    top_image_height = 178 if has_highlights else 198
+    bottom_image_height = 252 if has_highlights else 282
+    image_x = margin + 4
+    image_width = content_width - 8
 
     pdf.drawImage(ImageReader(str(page.top_chart_path)), image_x, current_y - top_image_height, width=image_width, height=top_image_height, preserveAspectRatio=True, mask="auto")
-    current_y -= top_image_height + 12
+    current_y -= top_image_height + 8
     current_y = _draw_wrapped_text(pdf, page.top_caption, margin, current_y, content_width, font_name="Helvetica", font_size=11)
-    current_y -= 10
+    current_y -= 6
 
     pdf.drawImage(ImageReader(str(page.bottom_chart_path)), image_x, current_y - bottom_image_height, width=image_width, height=bottom_image_height, preserveAspectRatio=True, mask="auto")
-    current_y -= bottom_image_height + 10
-    _draw_wrapped_text(pdf, page.bottom_caption, margin, max(current_y, 80), content_width, font_name="Helvetica", font_size=11)
+    current_y -= bottom_image_height + 8
+    _draw_wrapped_text(pdf, page.bottom_caption, margin, max(current_y, 72), content_width, font_name="Helvetica", font_size=11)
 
     pdf.setFont("Helvetica", 11)
     pdf.setFillColor(colors.HexColor(COLOR_TEXT))

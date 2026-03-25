@@ -345,7 +345,7 @@ def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
 
 
 def _style_bar_axis(ax: plt.Axes, title: str) -> None:
-    ax.set_title(_wrap_title(title, width=36), fontsize=10, color=COLOR_TEXT, pad=16)
+    ax.set_title(_wrap_title(title, width=36), fontsize=10, fontweight="bold", color=COLOR_TEXT, pad=16)
     ax.spines[["top", "right", "left", "bottom"]].set_visible(False)
     ax.set_facecolor("none")
     ax.tick_params(axis="y", left=False, labelleft=False)
@@ -773,7 +773,7 @@ def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
     current_y -= bottom_image_height + 8
     _draw_wrapped_text(pdf, page.bottom_caption, margin, max(current_y, 72), content_width, font_name="Helvetica", font_size=11)
 
-    pdf.setFont("Helvetica", 11)
+    pdf.setFont("Helvetica-Bold", 11)
     pdf.setFillColor(colors.HexColor(COLOR_TEXT))
     pdf.drawCentredString(page_width / 2, 38, "61IMÓVEIS.COM")
     pdf.setLineWidth(0.6)

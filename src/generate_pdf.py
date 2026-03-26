@@ -358,7 +358,7 @@ def compute_indicators(df: pd.DataFrame, filters: FilterScope) -> Indicators:
         location_series = _aggregate_series(df, [location_group_col, "tem_vaga"])
     elif not filters.bloco:
         location_group_col = "bloco_filter"
-        location_series = _aggregate_series(df, [location_group_col, "tem_vaga"])
+        location_series = _aggregate_series(df, [location_group_col, "tem_vaga"], min_records=1)
 
     return Indicators(
         filters=filters,

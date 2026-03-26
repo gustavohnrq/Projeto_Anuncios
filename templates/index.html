@@ -43,7 +43,7 @@
           <p>Selecione os filtros e gere o estudo imobiliário em PDF.</p>
         </div>
 
-        <form method="post" class="report-form">
+        <form method="post" class="report-form" id="report-form">
           <div class="field full">
             <label for="input_path">Caminho da base (opcional)</label>
             <input
@@ -158,4 +158,19 @@
     </main>
   </div>
 </body>
+<script>
+  (function () {
+    const form = document.getElementById('report-form');
+    if (!form) return;
+
+    const dependentFields = ['bairro', 'grupo_quadra', 'quadra_unica'];
+    dependentFields.forEach((fieldName) => {
+      const el = form.querySelector(`[name="${fieldName}"]`);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        form.requestSubmit();
+      });
+    });
+  })();
+</script>
 </html>

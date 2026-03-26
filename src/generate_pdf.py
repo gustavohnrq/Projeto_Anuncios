@@ -5,6 +5,7 @@ import re
 import tempfile
 import textwrap
 import unicodedata
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -44,6 +45,7 @@ COLOR_GRID = "#E5E5E5"
 PAGE_BG = "#EFEFEF"
 DEFAULT_PALETTE = [COLOR_PRIMARY, COLOR_SECONDARY, COLOR_ORANGE, COLOR_PURPLE, COLOR_PINK]
 VAGA_COLORS = {"Com Vaga": COLOR_PRIMARY, "Sem Vaga": COLOR_SECONDARY, "Geral": "#404040"}
+WATERMARK_URL = "https://drive.google.com/uc?export=download&id=1hz0s32GBLXxQfZcetfIMrCuQS4gKGHmI"
 
 plt.rcParams.update({"font.family": "DejaVu Sans", "axes.titlesize": 12})
 
@@ -780,12 +782,50 @@ def _draw_brand(pdf: canvas.Canvas, page_width: float, page_height: float) -> No
     pdf.setFillColor(colors.HexColor("#FFC400"))
     pdf.rect(x, y - 6, 18, 18, fill=1, stroke=0)
     pdf.setFillColor(colors.HexColor(COLOR_SECONDARY))
-    pdf.setFont("Helvetica", 36)
-    pdf.drawString(x - 2, y - 10, "6")
-    pdf.drawString(x + 18, y - 10, "1")
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(x - 2, y - 28, "IMÓVEIS")
     pdf.setFillColor(colors.black)
+
+
+def _watermark_path() -> Path:
+    return _repo_root() / "static" / "watermark.png"
+
+
+def _ensure_watermark_file() -> Path | None:
+    watermark = _watermark_path()
+    if watermark.exists():
+        return watermark
+    try:
+        watermark.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(WATERMARK_URL, str(watermark))
+        return watermark if watermark.exists() else None
+    except Exception:
+        return None
+
+
+def _draw_watermark(pdf: canvas.Canvas, page_width: float, page_height: float) -> None:
+    watermark = _ensure_watermark_file()
+    if watermark is None:
+        return
+    try:
+        image = ImageReader(str(watermark))
+        iw, ih = image.getSize()
+        max_w = page_width * 0.72
+        max_h = page_height * 0.72
+        scale = min(max_w / iw, max_h / ih)
+        draw_w = iw * scale
+        draw_h = ih * scale
+        draw_x = (page_width - draw_w) / 2
+        draw_y = (page_height - draw_h) / 2
+        pdf.saveState()
+        if hasattr(pdf, "setFillAlpha"):
+            pdf.setFillAlpha(0.5)
+        if hasattr(pdf, "setStrokeAlpha"):
+            pdf.setStrokeAlpha(0.5)
+        pdf.drawImage(image, draw_x, draw_y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask="auto")
+        pdf.restoreState()
+    except Exception:
+        return
 
 
 def _draw_wrapped_text(
@@ -823,6 +863,7 @@ def _draw_page(pdf: canvas.Canvas, page: PageCharts, subtitle: str) -> None:
     pdf.setFillColor(colors.HexColor(PAGE_BG))
     pdf.rect(0, 0, page_width, page_height, stroke=0, fill=1)
     pdf.setFillColor(colors.black)
+    _draw_watermark(pdf, page_width, page_height)
 
     _draw_brand(pdf, page_width, page_height)
 

@@ -676,13 +676,13 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
             "comparando imóveis com e sem vaga de garagem."
         ),
         bottom_chart_path=_plot_line_chart(
-            indicators.overview_series,
+            indicators.overview_series[indicators.overview_series["serie"] == "Com Vaga"].copy(),
             ["serie"],
             charts_dir / "page_1_bottom.png",
-            "Evolução do valor do m² nos últimos meses",
+            "Evolução do valor do m² (somente imóveis com vaga)",
             use_vaga_palette=True,
         ),
-        bottom_caption="O gráfico abaixo mostra a evolução mensal suavizada por média móvel de 3 períodos.",
+        bottom_caption="O gráfico abaixo mostra a evolução mensal suavizada por média móvel de 3 períodos para imóveis com vaga.",
     )
 
     room_label = lambda text: f"Quartos {int(float(text))}" if str(text).replace('.', '', 1).isdigit() else str(text)
@@ -700,12 +700,14 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
         ),
         top_caption="Acima, o valor do m² por quartos aparece separado por imóveis com e sem garagem no último mês disponível.",
         bottom_chart_path=_plot_line_chart(
-            indicators.bedrooms_series.assign(quartos_label=indicators.bedrooms_series["quartos_num"].astype(str).map(room_label)),
-            ["quartos_label", "tem_vaga"],
+            indicators.bedrooms_series[indicators.bedrooms_series["tem_vaga"] == "Com Vaga"].assign(
+                quartos_label=lambda x: x["quartos_num"].astype(str).map(room_label)
+            ),
+            ["quartos_label"],
             charts_dir / "page_2_bottom.png",
-            "Evolução do valor do m² por número de quartos",
+            "Evolução do valor do m² por número de quartos (com vaga)",
         ),
-        bottom_caption="Abaixo, a evolução mensal é apresentada por número de quartos e tipo de vaga.",
+        bottom_caption="Abaixo, a evolução mensal é apresentada por número de quartos somente para imóveis com vaga.",
     )
 
     area_page = PageCharts(
@@ -722,12 +724,14 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
         ),
         top_caption="O gráfico acima mostra o recorte do último mês por faixa de metragem, separado entre imóveis com e sem vaga.",
         bottom_chart_path=_plot_line_chart(
-            indicators.area_series.assign(serie=indicators.area_series["faixa_metragem"].astype(str) + " | " + indicators.area_series["tem_vaga"].astype(str)),
+            indicators.area_series[indicators.area_series["tem_vaga"] == "Com Vaga"].assign(
+                serie=lambda x: x["faixa_metragem"].astype(str)
+            ),
             ["serie"],
             charts_dir / "page_3_bottom.png",
-            "Evolução do valor do m² por metragem",
+            "Evolução do valor do m² por metragem (com vaga)",
         ),
-        bottom_caption="O gráfico abaixo explicita a evolução das faixas de metragem ao longo dos meses.",
+        bottom_caption="O gráfico abaixo explicita a evolução das faixas de metragem ao longo dos meses para imóveis com vaga.",
     )
 
     pages = [overview_page, rooms_page, area_page]
@@ -763,16 +767,12 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
             ),
             top_caption=f"Acima, a média do valor do m² por {location_label} é apresentada no último mês com dados suficientes.",
             bottom_chart_path=_plot_line_chart(
-                location_plot_df.assign(
-                    serie=location_plot_df[group_col].astype(str)
-                    + " | "
-                    + location_plot_df["tem_vaga"].astype(str)
-                ),
+                location_plot_df[location_plot_df["tem_vaga"] == "Com Vaga"].assign(serie=location_plot_df[group_col].astype(str)),
                 ["serie"],
                 charts_dir / "page_4_bottom.png",
-                f"Evolução do valor do m² por {location_label}",
+                f"Evolução do valor do m² por {location_label} (com vaga)",
             ),
-            bottom_caption=f"Abaixo, a evolução mensal mostra como o comportamento de preço varia entre {location_label}s do recorte.",
+            bottom_caption=f"Abaixo, a evolução mensal mostra como o comportamento de preço varia entre {location_label}s do recorte apenas para imóveis com vaga.",
         )
         pages.append(location_page)
 

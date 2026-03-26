@@ -415,6 +415,18 @@ def _compact_legend_label(label: str, max_len: int = 26) -> str:
     return cleaned[: max_len - 1] + "…"
 
 
+def _format_bloco_label(label: object) -> str:
+    text = _normalize_space(str(label)) if label is not None else ""
+    if not text:
+        return ""
+    ascii_text = _strip_accents(text).upper()
+    match = re.search(r"(?:BLOCO|BL)\s*([A-Z0-9]+)", ascii_text)
+    if match:
+        return match.group(1)
+    compact = re.sub(r"[^A-Z0-9]", "", ascii_text)
+    return compact or text
+
+
 def _annotate_bar_values(ax: plt.Axes, bars, values: list[float]) -> None:
     for bar, value in zip(bars, values):
         y_position = max(bar.get_height() * 0.96, bar.get_height() - (bar.get_height() * 0.08))
@@ -722,24 +734,34 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
             "bloco_filter": "bloco",
         }
         location_label = label_map.get(indicators.location_group_col, "localização")
+        is_bloco_view = indicators.location_group_col == "bloco_filter"
+        label_formatter = _format_bloco_label if is_bloco_view else None
+        max_categories = None if is_bloco_view else 4
+        location_plot_df = indicators.location_series.copy()
+        if is_bloco_view and not location_plot_df.empty:
+            location_plot_df["location_label"] = location_plot_df[indicators.location_group_col].map(_format_bloco_label)
+            group_col = "location_label"
+        else:
+            group_col = indicators.location_group_col
         location_page = PageCharts(
             header=f"Valor do m² por {location_label}",
             intro=_page_intro_localizacao(),
             highlight_lines=(),
             top_chart_path=_plot_dual_bar_last_month(
-                indicators.location_series,
-                indicators.location_group_col,
+                location_plot_df,
+                group_col,
                 charts_dir / "page_4_top.png",
                 f"Valor do m² por {location_label} com garagem",
                 f"Valor do m² por {location_label} sem garagem",
-                max_categories=4,
+                label_formatter=label_formatter,
+                max_categories=max_categories,
             ),
             top_caption=f"Acima, a média do valor do m² por {location_label} é apresentada no último mês com dados suficientes.",
             bottom_chart_path=_plot_line_chart(
-                indicators.location_series.assign(
-                    serie=indicators.location_series[indicators.location_group_col].astype(str)
+                location_plot_df.assign(
+                    serie=location_plot_df[group_col].astype(str)
                     + " | "
-                    + indicators.location_series["tem_vaga"].astype(str)
+                    + location_plot_df["tem_vaga"].astype(str)
                 ),
                 ["serie"],
                 charts_dir / "page_4_bottom.png",

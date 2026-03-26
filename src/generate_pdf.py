@@ -819,9 +819,9 @@ def _draw_watermark(pdf: canvas.Canvas, page_width: float, page_height: float) -
         draw_y = (page_height - draw_h) / 2
         pdf.saveState()
         if hasattr(pdf, "setFillAlpha"):
-            pdf.setFillAlpha(0.5)
+            pdf.setFillAlpha(0.1)
         if hasattr(pdf, "setStrokeAlpha"):
-            pdf.setStrokeAlpha(0.5)
+            pdf.setStrokeAlpha(0.1)
         pdf.drawImage(image, draw_x, draw_y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask="auto")
         pdf.restoreState()
     except Exception:

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estudo Imobiliário | Painel de Geração</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-mark">EI</div>
+        <div>
+          <h1 class="app-title">Estudo Imobiliário</h1>
+          <p class="app-subtitle">Painel web local para geração de relatórios PDF</p>
+        </div>
+      </div>
+      <div class="topbar-meta">
+        <span class="meta-label">Base Analítica</span>
+        <span class="meta-value" title="{{ base_path }}">{{ base_path }}</span>
+      </div>
+    </header>
+
+    {% if error %}
+      <div class="alert alert-error">
+        <strong>Erro:</strong> {{ error }}
+      </div>
+    {% endif %}
+    {% if info %}
+      <div class="alert alert-info">
+        <strong>Status:</strong> {{ info }}
+      </div>
+    {% endif %}
+
+    <main class="content-grid">
+      <section class="card form-card">
+        <div class="card-head">
+          <h2>Configuração do Relatório</h2>
+          <p>Selecione os filtros e gere o estudo imobiliário em PDF.</p>
+        </div>
+
+        <form method="post" class="report-form" id="report-form">
+          <div class="field full">
+            <label for="input_path">Caminho da base (opcional)</label>
+            <input
+              id="input_path"
+              name="input_path"
+              type="text"
+              placeholder="Ex.: /caminho/base_analitica.csv"
+              value="{{ input_path }}"
+            />
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label for="bairro">Bairro</label>
+              <select id="bairro" name="bairro" required>
+                {% for item in bairros %}
+                  <option value="{{ item }}" {% if bairro == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="grupo_quadra">Grupo de Quadras</label>
+              <select id="grupo_quadra" name="grupo_quadra">
+                <option value="">Todas</option>
+                {% for item in grupos_quadra %}
+                  <option value="{{ item }}" {% if grupo_quadra == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="quadra_unica">Quadra Específica</label>
+              <select id="quadra_unica" name="quadra_unica">
+                <option value="">Todas</option>
+                {% for item in quadras_unicas %}
+                  <option value="{{ item }}" {% if quadra_unica == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="bloco">Bloco</label>
+              <select id="bloco" name="bloco">
+                <option value="">Todos</option>
+                {% for item in blocos %}
+                  <option value="{{ item }}" {% if bloco == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button name="action" value="preview" type="submit" class="btn btn-secondary">Atualizar prévia</button>
+            <button name="action" value="generate" type="submit" class="btn btn-primary">Gerar PDF</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card preview-card">
+        <div class="card-head">
+          <h2>Resumo do Recorte</h2>
+          <p>Visão rápida antes de gerar o PDF final.</p>
+        </div>
+
+        {% if preview %}
+          <div class="kpi-grid">
+            <article class="kpi">
+              <span class="kpi-label">Bairro</span>
+              <strong class="kpi-value">{{ preview.bairro }}</strong>
+            </article>
+            <article class="kpi">
+              <span class="kpi-label">Grupo de Quadras</span>
+              <strong class="kpi-value">{{ preview.grupo_quadra or 'Todas' }}</strong>
+            </article>
+            <article class="kpi">
+              <span class="kpi-label">Quadra Específica</span>
+              <strong class="kpi-value">{{ preview.quadra_unica or 'Todas' }}</strong>
+            </article>
+            <article class="kpi">
+              <span class="kpi-label">Bloco</span>
+              <strong class="kpi-value">{{ preview.bloco or 'Todos' }}</strong>
+            </article>
+            <article class="kpi">
+              <span class="kpi-label">Registros</span>
+              <strong class="kpi-value">{{ preview.registros }}</strong>
+            </article>
+          </div>
+
+          <div class="meta-box">
+            <h3>Meses disponíveis</h3>
+            <p>{{ preview.meses|join(', ') if preview.meses else 'Nenhum mês disponível.' }}</p>
+          </div>
+
+          {% if last_month %}
+            <div class="meta-box accent">
+              <h3>Último mês de referência</h3>
+              <ul>
+                <li><span>Mês:</span> <strong>{{ last_month.mes_ref }}</strong></li>
+                <li><span>Valor médio do m²:</span> <strong>{{ last_month.valor_m2_geral }}</strong></li>
+                <li><span>Amostra:</span> <strong>{{ last_month.amostra }}</strong></li>
+              </ul>
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="empty-state">
+            <h3>Sem prévia disponível</h3>
+            <p>Selecione os filtros e clique em <strong>Atualizar prévia</strong> para visualizar os dados.</p>
+          </div>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+</body>
+<script>
+  (function () {
+    const form = document.getElementById('report-form');
+    if (!form) return;
+
+    const dependentFields = ['bairro', 'grupo_quadra', 'quadra_unica'];
+    dependentFields.forEach((fieldName) => {
+      const el = form.querySelector(`[name="${fieldName}"]`);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        form.requestSubmit();
+      });
+    });
+  })();
+</script>
+</html>

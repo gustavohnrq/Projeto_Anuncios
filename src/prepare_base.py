@@ -58,6 +58,19 @@ def extract_group_quadra(value):
     return f"{pref} {centena}".strip()
 
 
+def extract_quadra_unica(value):
+    if pd.isna(value):
+        return None
+    s = str(value).upper().strip()
+    s_compact = re.sub(r"\s+", "", s)
+    m = re.search(r"(SQN|SQS|CLN|CLS|SHN|SHS)?\s*[-/]?\s*(\d{3})", s_compact)
+    if not m:
+        return None
+    prefix = (m.group(1) or "").strip()
+    numero = m.group(2)
+    return f"{prefix} {numero}".strip()
+
+
 def extract_bloco(value):
     if pd.isna(value):
         return None
@@ -136,9 +149,11 @@ def prepare_base():
 
     if "quadra" in df.columns:
         df["grupo_quadra"] = df["quadra"].apply(extract_group_quadra)
+        df["quadra_unica"] = df["quadra"].apply(extract_quadra_unica)
         df["bloco_padronizado"] = df["quadra"].apply(extract_bloco)
     else:
         df["grupo_quadra"] = None
+        df["quadra_unica"] = None
         df["bloco_padronizado"] = None
 
     if "vagas_num" in df.columns:

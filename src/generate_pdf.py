@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import re
 import tempfile
 import textwrap
@@ -14,6 +15,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+from PIL import Image
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader, simpleSplit
@@ -46,6 +48,7 @@ PAGE_BG = "#EFEFEF"
 DEFAULT_PALETTE = [COLOR_PRIMARY, COLOR_SECONDARY, COLOR_ORANGE, COLOR_PURPLE, COLOR_PINK]
 VAGA_COLORS = {"Com Vaga": COLOR_PRIMARY, "Sem Vaga": COLOR_SECONDARY, "Geral": "#404040"}
 WATERMARK_URL = "https://drive.google.com/uc?export=download&id=1hz0s32GBLXxQfZcetfIMrCuQS4gKGHmI"
+WATERMARK_OPACITY = 0.06
 
 plt.rcParams.update({"font.family": "DejaVu Sans", "axes.titlesize": 12})
 
@@ -777,14 +780,7 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
 
 
 def _draw_brand(pdf: canvas.Canvas, page_width: float, page_height: float) -> None:
-    x = page_width - 78
-    y = page_height - 48
-    pdf.setFillColor(colors.HexColor("#FFC400"))
-    pdf.rect(x, y - 6, 18, 18, fill=1, stroke=0)
-    pdf.setFillColor(colors.HexColor(COLOR_SECONDARY))
-    pdf.setFont("Helvetica-Bold", 12)
-    pdf.drawString(x - 2, y - 28, "IMÓVEIS")
-    pdf.setFillColor(colors.black)
+    return
 
 
 def _watermark_path() -> Path:
@@ -808,7 +804,14 @@ def _draw_watermark(pdf: canvas.Canvas, page_width: float, page_height: float) -
     if watermark is None:
         return
     try:
-        image = ImageReader(str(watermark))
+        with Image.open(watermark).convert("RGBA") as image_rgba:
+            alpha = image_rgba.getchannel("A")
+            alpha = alpha.point(lambda value: int(value * WATERMARK_OPACITY))
+            image_rgba.putalpha(alpha)
+            png_buffer = io.BytesIO()
+            image_rgba.save(png_buffer, format="PNG")
+            png_buffer.seek(0)
+            image = ImageReader(png_buffer)
         iw, ih = image.getSize()
         max_w = page_width * 0.72
         max_h = page_height * 0.72
@@ -817,13 +820,7 @@ def _draw_watermark(pdf: canvas.Canvas, page_width: float, page_height: float) -
         draw_h = ih * scale
         draw_x = (page_width - draw_w) / 2
         draw_y = (page_height - draw_h) / 2
-        pdf.saveState()
-        if hasattr(pdf, "setFillAlpha"):
-            pdf.setFillAlpha(0.1)
-        if hasattr(pdf, "setStrokeAlpha"):
-            pdf.setStrokeAlpha(0.1)
         pdf.drawImage(image, draw_x, draw_y, width=draw_w, height=draw_h, preserveAspectRatio=True, mask="auto")
-        pdf.restoreState()
     except Exception:
         return
 

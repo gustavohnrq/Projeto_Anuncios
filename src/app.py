@@ -48,7 +48,8 @@ def _build_generate_report_fallback(module):
 
     def _generate_report_pdf(
         bairro: str,
-        quadra: str | None = None,
+        grupo_quadra: str | None = None,
+        quadra_unica: str | None = None,
         bloco: str | None = None,
         input_path: str | None = None,
         output_path: str | None = None,
@@ -57,11 +58,22 @@ def _build_generate_report_fallback(module):
             raise ValueError("output_path é obrigatório no fallback de geração de PDF.")
 
         df, base_path = module.load_data(input_path)
-        scoped = module.filter_data(df, bairro=bairro, quadra=quadra, bloco=bloco)
+        scoped = module.filter_data(
+            df,
+            bairro=bairro,
+            grupo_quadra=grupo_quadra,
+            quadra_unica=quadra_unica,
+            bloco=bloco,
+        )
         if scoped.empty:
             raise ValueError("Nenhum registro encontrado para os filtros informados.")
 
-        filters = module.FilterScope(bairro=bairro, quadra=quadra, bloco=bloco)
+        filters = module.FilterScope(
+            bairro=bairro,
+            grupo_quadra=grupo_quadra,
+            quadra_unica=quadra_unica,
+            bloco=bloco,
+        )
         indicators = module.compute_indicators(scoped, filters)
         output_file = Path(output_path)
 
@@ -86,16 +98,25 @@ def _options_from_series(series: pd.Series) -> list[str]:
     return sorted([value for value in series.dropna().astype(str).unique().tolist() if value.strip()])
 
 
-def _scope_preview(df: pd.DataFrame, bairro: str, quadra: str | None = None, bloco: str | None = None) -> dict:
-    scoped = df[df["bairro_padronizado"].fillna("") == bairro].copy()
-    if quadra:
-        scoped = scoped[scoped["grupo_quadra"].fillna("") == quadra]
+def _scope_preview(
+    df: pd.DataFrame,
+    bairro: str,
+    grupo_quadra: str | None = None,
+    quadra_unica: str | None = None,
+    bloco: str | None = None,
+) -> dict:
+    scoped = df[df["bairro_filter"].fillna("") == bairro].copy()
+    if grupo_quadra:
+        scoped = scoped[scoped["grupo_quadra_filter"].fillna("") == grupo_quadra]
+    if quadra_unica:
+        scoped = scoped[scoped["quadra_unica_filter"].fillna("") == quadra_unica]
     if bloco:
-        scoped = scoped[scoped["bloco_padronizado"].fillna("") == bloco]
+        scoped = scoped[scoped["bloco_filter"].fillna("") == bloco]
 
     return {
         "bairro": bairro,
-        "quadra": quadra,
+        "grupo_quadra": grupo_quadra,
+        "quadra_unica": quadra_unica,
         "bloco": bloco,
         "registros": len(scoped),
         "meses": sorted(scoped["mes_ref"].dropna().astype(str).unique().tolist()),
@@ -103,33 +124,54 @@ def _scope_preview(df: pd.DataFrame, bairro: str, quadra: str | None = None, blo
 
 
 def _get_form_state(df: pd.DataFrame, form: dict[str, str]) -> dict:
-    bairros = _options_from_series(df["bairro_padronizado"])
+    bairros = _options_from_series(df["bairro_filter"])
     bairro = (form.get("bairro") or "").strip()
     if not bairro and bairros:
         bairro = bairros[0]
 
-    scoped_bairro = df[df["bairro_padronizado"].fillna("") == bairro] if bairro else pd.DataFrame(columns=df.columns)
-    quadras = _options_from_series(scoped_bairro["grupo_quadra"]) if not scoped_bairro.empty else []
-    quadra = (form.get("quadra") or "").strip()
-    if quadra not in quadras:
-        quadra = ""
+    scoped_bairro = df[df["bairro_filter"].fillna("") == bairro] if bairro else pd.DataFrame(columns=df.columns)
+    grupos = _options_from_series(scoped_bairro["grupo_quadra_filter"]) if not scoped_bairro.empty else []
+    grupo_quadra = (form.get("grupo_quadra") or "").strip()
+    if grupo_quadra not in grupos:
+        grupo_quadra = ""
 
-    scoped_quadra = scoped_bairro
-    if quadra:
-        scoped_quadra = scoped_bairro[scoped_bairro["grupo_quadra"].fillna("") == quadra]
-    blocos = _options_from_series(scoped_quadra["bloco_padronizado"]) if not scoped_quadra.empty else []
+    scoped_grupo = scoped_bairro
+    if grupo_quadra:
+        scoped_grupo = scoped_bairro[scoped_bairro["grupo_quadra_filter"].fillna("") == grupo_quadra]
+    quadras_unicas = _options_from_series(scoped_grupo["quadra_unica_filter"]) if not scoped_grupo.empty else []
+    quadra_unica = (form.get("quadra_unica") or "").strip()
+    if quadra_unica not in quadras_unicas:
+        quadra_unica = ""
+
+    scoped_quadra_unica = scoped_grupo
+    if quadra_unica:
+        scoped_quadra_unica = scoped_grupo[scoped_grupo["quadra_unica_filter"].fillna("") == quadra_unica]
+
+    blocos = _options_from_series(scoped_quadra_unica["bloco_filter"]) if quadra_unica and not scoped_quadra_unica.empty else []
     bloco = (form.get("bloco") or "").strip()
     if bloco not in blocos:
         bloco = ""
 
-    preview = _scope_preview(df, bairro=bairro, quadra=quadra or None, bloco=bloco or None) if bairro else None
+    preview = (
+        _scope_preview(
+            df,
+            bairro=bairro,
+            grupo_quadra=grupo_quadra or None,
+            quadra_unica=quadra_unica or None,
+            bloco=bloco or None,
+        )
+        if bairro
+        else None
+    )
 
     return {
         "bairros": bairros,
-        "quadras": quadras,
+        "grupos_quadra": grupos,
+        "quadras_unicas": quadras_unicas,
         "blocos": blocos,
         "bairro": bairro,
-        "quadra": quadra,
+        "grupo_quadra": grupo_quadra,
+        "quadra_unica": quadra_unica,
         "bloco": bloco,
         "preview": preview,
     }
@@ -150,10 +192,12 @@ def index():
             info=None,
             base_path=input_path or "(padrão do projeto)",
             bairros=[],
-            quadras=[],
+            grupos_quadra=[],
+            quadras_unicas=[],
             blocos=[],
             bairro="",
-            quadra="",
+            grupo_quadra="",
+            quadra_unica="",
             bloco="",
             preview=None,
             input_path=input_path or "",
@@ -177,7 +221,8 @@ def index():
 
                 result = generate_report_pdf(
                     bairro=form_state["bairro"],
-                    quadra=form_state["quadra"] or None,
+                    grupo_quadra=form_state["grupo_quadra"] or None,
+                    quadra_unica=form_state["quadra_unica"] or None,
                     bloco=form_state["bloco"] or None,
                     input_path=input_path,
                     output_path=str(tmp_path),
@@ -196,11 +241,13 @@ def index():
     if form_state["bairro"]:
         scoped_preview = form_state["preview"]
         if scoped_preview and scoped_preview["registros"] > 0:
-            scoped_df = df[df["bairro_padronizado"].fillna("") == form_state["bairro"]]
-            if form_state["quadra"]:
-                scoped_df = scoped_df[scoped_df["grupo_quadra"].fillna("") == form_state["quadra"]]
+            scoped_df = df[df["bairro_filter"].fillna("") == form_state["bairro"]]
+            if form_state["grupo_quadra"]:
+                scoped_df = scoped_df[scoped_df["grupo_quadra_filter"].fillna("") == form_state["grupo_quadra"]]
+            if form_state["quadra_unica"]:
+                scoped_df = scoped_df[scoped_df["quadra_unica_filter"].fillna("") == form_state["quadra_unica"]]
             if form_state["bloco"]:
-                scoped_df = scoped_df[scoped_df["bloco_padronizado"].fillna("") == form_state["bloco"]]
+                scoped_df = scoped_df[scoped_df["bloco_filter"].fillna("") == form_state["bloco"]]
             if not scoped_df.empty:
                 ref = scoped_df[scoped_df["mes_ref_dt"] == scoped_df["mes_ref_dt"].max()]
                 last_month = {

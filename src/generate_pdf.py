@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import re
 import tempfile
 import textwrap
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -49,13 +51,16 @@ plt.rcParams.update({"font.family": "DejaVu Sans", "axes.titlesize": 12})
 @dataclass(frozen=True)
 class FilterScope:
     bairro: str
-    quadra: str | None = None
+    grupo_quadra: str | None = None
+    quadra_unica: str | None = None
     bloco: str | None = None
 
     def subtitle(self) -> str:
         parts = [f"Bairro: {self.bairro}"]
-        if self.quadra:
-            parts.append(f"Quadra: {self.quadra}")
+        if self.grupo_quadra:
+            parts.append(f"Grupo de Quadras: {self.grupo_quadra}")
+        if self.quadra_unica:
+            parts.append(f"Quadra Única: {self.quadra_unica}")
         if self.bloco:
             parts.append(f"Bloco: {self.bloco}")
         return " | ".join(parts)
@@ -70,7 +75,8 @@ class Indicators:
     overview_series: pd.DataFrame
     bedrooms_series: pd.DataFrame
     area_series: pd.DataFrame
-    quadra_series: pd.DataFrame
+    location_series: pd.DataFrame
+    location_group_col: str | None
 
 
 @dataclass(frozen=True)
@@ -171,6 +177,47 @@ def month_label(value: str | None) -> str:
     return month_names[dt.month]
 
 
+def _strip_accents(text: str) -> str:
+    return "".join(ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch))
+
+
+def _normalize_space(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _normalize_group_label(value: object) -> str:
+    text = _normalize_space(str(value)) if value is not None else ""
+    if not text or text.lower() == "nan":
+        return ""
+    return text.upper()
+
+
+def _normalize_quadra_unica(value: object) -> str:
+    text = _normalize_space(str(value)) if value is not None else ""
+    if not text or text.lower() == "nan":
+        return ""
+    ascii_text = _strip_accents(text).upper()
+    match = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    if match:
+        return f"Q{match.group(1)}"
+    compact = re.sub(r"[^A-Z0-9]", "", ascii_text)
+    if compact:
+        return f"Q{compact[:4]}"
+    return ""
+
+
+def _extract_quadra_from_text(value: object) -> str:
+    text = _normalize_space(str(value)) if value is not None else ""
+    if not text or text.lower() == "nan":
+        return ""
+    ascii_text = _strip_accents(text).upper()
+    explicit = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    if explicit:
+        return f"Q{explicit.group(1)}"
+    fallback = re.search(r"\b([A-Z]?\d{1,3}[A-Z]?)\b", ascii_text)
+    return f"Q{fallback.group(1)}" if fallback else ""
+
+
 def load_data(input_path: str | None = None) -> tuple[pd.DataFrame, Path]:
     base_path = resolve_base_path(input_path)
     df = pd.read_csv(base_path, encoding="utf-8-sig")
@@ -185,6 +232,25 @@ def load_data(input_path: str | None = None) -> tuple[pd.DataFrame, Path]:
     work["mes_ref"] = work["mes_ref"].astype("string")
     work = work.dropna(subset=["mes_ref", "valor_m2_calc"])
     work = work[work["valor_m2_calc"] > 0].copy()
+    if "oferta" in work.columns:
+        oferta_norm = work["oferta"].fillna("").astype(str).map(lambda v: _strip_accents(v).casefold())
+        work = work[oferta_norm != "lancamentos"].copy()
+
+    work["bairro_filter"] = work["bairro_padronizado"].fillna("").astype(str).map(_normalize_space)
+    work["grupo_quadra_filter"] = work["grupo_quadra"].fillna("").astype(str).map(_normalize_group_label)
+
+    if "quadra_unica" in work.columns:
+        quadra_src = work["quadra_unica"].fillna("").astype(str)
+    else:
+        quadra_src = pd.Series([""] * len(work), index=work.index, dtype="string")
+
+    quadra_from_group = work["grupo_quadra"].fillna("").astype(str).map(_extract_quadra_from_text)
+    quadra_from_bloco = work["bloco_padronizado"].fillna("").astype(str).map(_extract_quadra_from_text)
+    work["quadra_unica_filter"] = quadra_src.map(_normalize_quadra_unica)
+    work["quadra_unica_filter"] = work["quadra_unica_filter"].mask(work["quadra_unica_filter"] == "", quadra_from_group)
+    work["quadra_unica_filter"] = work["quadra_unica_filter"].mask(work["quadra_unica_filter"] == "", quadra_from_bloco)
+    work["bloco_filter"] = work["bloco_padronizado"].fillna("").astype(str).map(_normalize_space)
+
     work["mes_ref_dt"] = pd.to_datetime(work["mes_ref"].astype(str) + "-01", errors="coerce")
     work = work.dropna(subset=["mes_ref_dt"]).sort_values("mes_ref_dt").reset_index(drop=True)
     return work, base_path
@@ -193,20 +259,27 @@ def load_data(input_path: str | None = None) -> tuple[pd.DataFrame, Path]:
 def filter_data(
     df: pd.DataFrame,
     bairro: str,
-    quadra: str | None = None,
+    grupo_quadra: str | None = None,
+    quadra_unica: str | None = None,
     bloco: str | None = None,
 ) -> pd.DataFrame:
     if not bairro or not bairro.strip():
         raise ValueError("O filtro de bairro é obrigatório para gerar o estudo imobiliário.")
 
     work = df.copy()
-    work = work[work["bairro_padronizado"].fillna("").str.casefold() == bairro.strip().casefold()]
+    work = work[work["bairro_filter"].fillna("").str.casefold() == _normalize_space(bairro).casefold()]
 
-    if quadra:
-        work = work[work["grupo_quadra"].fillna("").str.casefold() == quadra.strip().casefold()]
+    if grupo_quadra:
+        group_value = _normalize_group_label(grupo_quadra)
+        work = work[work["grupo_quadra_filter"].fillna("").str.casefold() == group_value.casefold()]
+
+    if quadra_unica:
+        quadra_value = _normalize_quadra_unica(quadra_unica)
+        work = work[work["quadra_unica_filter"].fillna("").str.casefold() == quadra_value.casefold()]
 
     if bloco:
-        work = work[work["bloco_padronizado"].fillna("").str.casefold() == bloco.strip().casefold()]
+        bloco_value = _normalize_space(bloco)
+        work = work[work["bloco_filter"].fillna("").str.casefold() == bloco_value.casefold()]
 
     return work.sort_values("mes_ref_dt").reset_index(drop=True)
 
@@ -268,11 +341,17 @@ def compute_indicators(df: pd.DataFrame, filters: FilterScope) -> Indicators:
 
     bedrooms_series = _aggregate_series(df, ["quartos_num", "tem_vaga"])
     area_series = _aggregate_series(df, ["faixa_metragem", "tem_vaga"])
-    quadra_series = (
-        _aggregate_series(df, ["grupo_quadra", "tem_vaga"])
-        if not filters.quadra
-        else pd.DataFrame(columns=["mes_ref", "mes_ref_dt", "grupo_quadra", "tem_vaga", "valor_m2_medio", "qtd", "mm3_valor_m2"])
-    )
+    location_group_col: str | None = None
+    location_series = pd.DataFrame()
+    if not filters.grupo_quadra:
+        location_group_col = "grupo_quadra_filter"
+        location_series = _aggregate_series(df, [location_group_col, "tem_vaga"])
+    elif not filters.quadra_unica:
+        location_group_col = "quadra_unica_filter"
+        location_series = _aggregate_series(df, [location_group_col, "tem_vaga"])
+    elif not filters.bloco:
+        location_group_col = "bloco_filter"
+        location_series = _aggregate_series(df, [location_group_col, "tem_vaga"])
 
     return Indicators(
         filters=filters,
@@ -282,7 +361,8 @@ def compute_indicators(df: pd.DataFrame, filters: FilterScope) -> Indicators:
         overview_series=overview_series,
         bedrooms_series=bedrooms_series,
         area_series=area_series,
-        quadra_series=quadra_series,
+        location_series=location_series,
+        location_group_col=location_group_col,
     )
 
 
@@ -552,10 +632,10 @@ def _page_intro_area() -> str:
     )
 
 
-def _page_intro_quadra() -> str:
+def _page_intro_localizacao() -> str:
     return (
         "A localização do imóvel também causa variação nos preços. Nesta página analisamos como essa "
-        "variação ocorre entre grupos de quadra dentro do recorte selecionado."
+        "variação ocorre entre os recortes de localização dentro do filtro selecionado."
     )
 
 
@@ -628,29 +708,39 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
 
     pages = [overview_page, rooms_page, area_page]
 
-    if not indicators.filters.quadra:
-        quadra_page = PageCharts(
-            header="Valor do m² por quadra",
-            intro=_page_intro_quadra(),
+    if indicators.location_group_col:
+        label_map = {
+            "grupo_quadra_filter": "grupo de quadra",
+            "quadra_unica_filter": "quadra única",
+            "bloco_filter": "bloco",
+        }
+        location_label = label_map.get(indicators.location_group_col, "localização")
+        location_page = PageCharts(
+            header=f"Valor do m² por {location_label}",
+            intro=_page_intro_localizacao(),
             highlight_lines=(),
             top_chart_path=_plot_dual_bar_last_month(
-                indicators.quadra_series,
-                "grupo_quadra",
+                indicators.location_series,
+                indicators.location_group_col,
                 charts_dir / "page_4_top.png",
-                "Valor do m² por quadra com garagem",
-                "Valor do m² por quadra sem garagem",
+                f"Valor do m² por {location_label} com garagem",
+                f"Valor do m² por {location_label} sem garagem",
                 max_categories=4,
             ),
-            top_caption="Acima, a média do valor do m² por grupo de quadra é apresentada no último mês com dados suficientes.",
+            top_caption=f"Acima, a média do valor do m² por {location_label} é apresentada no último mês com dados suficientes.",
             bottom_chart_path=_plot_line_chart(
-                indicators.quadra_series.assign(serie=indicators.quadra_series["grupo_quadra"].astype(str) + " | " + indicators.quadra_series["tem_vaga"].astype(str)),
+                indicators.location_series.assign(
+                    serie=indicators.location_series[indicators.location_group_col].astype(str)
+                    + " | "
+                    + indicators.location_series["tem_vaga"].astype(str)
+                ),
                 ["serie"],
                 charts_dir / "page_4_bottom.png",
-                "Evolução do valor do m² por quadra",
+                f"Evolução do valor do m² por {location_label}",
             ),
-            bottom_caption="Abaixo, a evolução mensal mostra como o comportamento de preço varia entre as quadras do recorte.",
+            bottom_caption=f"Abaixo, a evolução mensal mostra como o comportamento de preço varia entre {location_label}s do recorte.",
         )
-        pages.append(quadra_page)
+        pages.append(location_page)
 
     return pages
 
@@ -796,22 +886,25 @@ def build_pdf(indicators: Indicators, charts: Iterable[PageCharts], output_path:
 
 def generate_report_pdf(
     bairro: str,
-    quadra: str | None = None,
+    grupo_quadra: str | None = None,
+    quadra_unica: str | None = None,
     bloco: str | None = None,
     input_path: str | None = None,
     output_path: str | None = None,
 ) -> ReportResult:
     df, base_path = load_data(input_path)
-    scoped = filter_data(df, bairro=bairro, quadra=quadra, bloco=bloco)
+    scoped = filter_data(df, bairro=bairro, grupo_quadra=grupo_quadra, quadra_unica=quadra_unica, bloco=bloco)
     if scoped.empty:
         raise ValueError("Nenhum registro encontrado para os filtros informados.")
 
-    filters = FilterScope(bairro=bairro, quadra=quadra, bloco=bloco)
+    filters = FilterScope(bairro=bairro, grupo_quadra=grupo_quadra, quadra_unica=quadra_unica, bloco=bloco)
     indicators = compute_indicators(scoped, filters)
 
     default_name = f"estudo_imobiliario_{bairro.lower().replace(' ', '_')}"
-    if quadra:
-        default_name += f"_{quadra.lower().replace(' ', '_')}"
+    if grupo_quadra:
+        default_name += f"_{grupo_quadra.lower().replace(' ', '_')}"
+    if quadra_unica:
+        default_name += f"_{quadra_unica.lower().replace(' ', '_')}"
     if bloco:
         default_name += f"_{bloco.lower().replace(' ', '_')}"
 
@@ -829,7 +922,8 @@ def generate_report_pdf(
             "input_path": str(base_path),
             "output_path": str(pdf_path),
             "bairro": filters.bairro,
-            "quadra": filters.quadra,
+            "grupo_quadra": filters.grupo_quadra,
+            "quadra_unica": filters.quadra_unica,
             "bloco": filters.bloco,
             "records_used": indicators.total_records,
             "mes_ref": indicators.last_month,
@@ -844,7 +938,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", help="Caminho opcional para a base analítica CSV.")
     parser.add_argument("--output", help="Caminho opcional para o PDF de saída.")
     parser.add_argument("--bairro", help="Bairro do estudo. Se omitido, usa o primeiro bairro disponível.")
-    parser.add_argument("--quadra", help="Filtro opcional de quadra.")
+    parser.add_argument("--grupo-quadra", dest="grupo_quadra", help="Filtro opcional de grupo de quadras.")
+    parser.add_argument("--quadra-unica", dest="quadra_unica", help="Filtro opcional de quadra única.")
+    parser.add_argument("--quadra", dest="quadra_legacy", help="Alias legado para --grupo-quadra.")
     parser.add_argument("--bloco", help="Filtro opcional de bloco.")
     return parser.parse_args()
 
@@ -853,9 +949,11 @@ def main() -> None:
     args = parse_args()
     df, _ = load_data(args.input)
     bairro = args.bairro or choose_default_bairro(df)
+    grupo_quadra = args.grupo_quadra or args.quadra_legacy
     result = generate_report_pdf(
         bairro=bairro,
-        quadra=args.quadra,
+        grupo_quadra=grupo_quadra,
+        quadra_unica=args.quadra_unica,
         bloco=args.bloco,
         input_path=args.input,
         output_path=args.output,

@@ -66,11 +66,21 @@
             </div>
 
             <div class="field">
-              <label for="quadra">Quadra</label>
-              <select id="quadra" name="quadra">
+              <label for="grupo_quadra">Grupo de Quadras</label>
+              <select id="grupo_quadra" name="grupo_quadra">
                 <option value="">Todas</option>
-                {% for item in quadras %}
-                  <option value="{{ item }}" {% if quadra == item %}selected{% endif %}>{{ item }}</option>
+                {% for item in grupos_quadra %}
+                  <option value="{{ item }}" {% if grupo_quadra == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="quadra_unica">Quadra Única</label>
+              <select id="quadra_unica" name="quadra_unica">
+                <option value="">Todas</option>
+                {% for item in quadras_unicas %}
+                  <option value="{{ item }}" {% if quadra_unica == item %}selected{% endif %}>{{ item }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -106,8 +116,12 @@
               <strong class="kpi-value">{{ preview.bairro }}</strong>
             </article>
             <article class="kpi">
-              <span class="kpi-label">Quadra</span>
-              <strong class="kpi-value">{{ preview.quadra or 'Todas' }}</strong>
+              <span class="kpi-label">Grupo de Quadras</span>
+              <strong class="kpi-value">{{ preview.grupo_quadra or 'Todas' }}</strong>
+            </article>
+            <article class="kpi">
+              <span class="kpi-label">Quadra Única</span>
+              <strong class="kpi-value">{{ preview.quadra_unica or 'Todas' }}</strong>
             </article>
             <article class="kpi">
               <span class="kpi-label">Bloco</span>

@@ -60,7 +60,7 @@ class FilterScope:
         if self.grupo_quadra:
             parts.append(f"Grupo de Quadras: {self.grupo_quadra}")
         if self.quadra_unica:
-            parts.append(f"Quadra Única: {self.quadra_unica}")
+            parts.append(f"Quadra Específica: {self.quadra_unica}")
         if self.bloco:
             parts.append(f"Bloco: {self.bloco}")
         return " | ".join(parts)
@@ -197,12 +197,14 @@ def _normalize_quadra_unica(value: object) -> str:
     if not text or text.lower() == "nan":
         return ""
     ascii_text = _strip_accents(text).upper()
-    match = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    match = re.search(r"(SQN|SQS|CLN|CLS|SHN|SHS)?\s*[-_/]?\s*(\d{3})", ascii_text)
     if match:
-        return f"Q{match.group(1)}"
-    compact = re.sub(r"[^A-Z0-9]", "", ascii_text)
-    if compact:
-        return f"Q{compact[:4]}"
+        prefix = (match.group(1) or "").strip()
+        numero = match.group(2)
+        return f"{prefix} {numero}".strip()
+    match_alt = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    if match_alt:
+        return f"Q{match_alt.group(1)}"
     return ""
 
 
@@ -211,9 +213,14 @@ def _extract_quadra_from_text(value: object) -> str:
     if not text or text.lower() == "nan":
         return ""
     ascii_text = _strip_accents(text).upper()
-    explicit = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    explicit = re.search(r"(SQN|SQS|CLN|CLS|SHN|SHS)?\s*[-_/]?\s*(\d{3})", ascii_text)
     if explicit:
-        return f"Q{explicit.group(1)}"
+        prefix = (explicit.group(1) or "").strip()
+        numero = explicit.group(2)
+        return f"{prefix} {numero}".strip()
+    explicit_alt = re.search(r"(?:QUADRA|QD|Q)\s*[-_/]?\s*([A-Z0-9]{1,4})", ascii_text)
+    if explicit_alt:
+        return f"Q{explicit_alt.group(1)}"
     fallback = re.search(r"\b([A-Z]?\d{1,3}[A-Z]?)\b", ascii_text)
     return f"Q{fallback.group(1)}" if fallback else ""
 
@@ -711,7 +718,7 @@ def generate_charts(indicators: Indicators, charts_dir: Path) -> list[PageCharts
     if indicators.location_group_col:
         label_map = {
             "grupo_quadra_filter": "grupo de quadra",
-            "quadra_unica_filter": "quadra única",
+            "quadra_unica_filter": "quadra específica",
             "bloco_filter": "bloco",
         }
         location_label = label_map.get(indicators.location_group_col, "localização")
